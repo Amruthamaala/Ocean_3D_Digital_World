@@ -1,0 +1,9 @@
+# Ignore heavy NetCDF files
+backend/data/*.nc
+*.nc
+
+# Python cache & virtual environment
+__pycache__/
+*.pyc
+venv/
+.env

@@ -1,0 +1,9 @@
+#cesiumContainer {
+  flex: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* Hide default Cesium credit bar and animation widgets to maintain clean UI */
+.cesium-viewer-bottom, .cesium-widget-credits { display: none !important; }
