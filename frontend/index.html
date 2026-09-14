@@ -1,206 +1,476 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SIH26067 - 3D Ocean Digital World</title>
-  
-  <!-- Three.js + OrbitControls + Chart.js via CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SIH26067 - 3D Ocean Digital World</title>
 
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { background: #030811; color: #ecf0f1; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+    <!-- Three.js + OrbitControls + Chart.js via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    /* Top Navigation */
-    .navbar {
-      height: 55px; background: rgba(5, 14, 28, 0.95); display: flex;
-      align-items: center; justify-content: space-between; padding: 0 24px;
-      border-bottom: 1px solid #142844; z-index: 10;
-    }
-    .brand { display: flex; align-items: center; gap: 12px; }
-    .brand h2 { font-size: 16px; letter-spacing: 1px; color: #64b5f6; font-weight: 700; }
-    .brand small { font-size: 11px; color: #90a4ae; }
-    .nav-links a { color: #cfd8dc; text-decoration: none; margin-left: 20px; font-size: 13px; }
-    .nav-links a.active { color: #4fc3f7; border-bottom: 2px solid #4fc3f7; padding-bottom: 4px; }
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+      body {
+        background: #030811;
+        color: #ecf0f1;
+        overflow: hidden;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
 
-    /* Main Layout */
-    .workspace { display: flex; flex: 1; position: relative; height: calc(100vh - 125px); width: 100vw; }
-    #globe-container { flex: 1; width: 100%; height: 100%; position: relative; cursor: grab; background: #02060d; }
+      /* Top Navigation */
+      .navbar {
+        height: 55px;
+        background: rgba(5, 14, 28, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 24px;
+        border-bottom: 1px solid #142844;
+        z-index: 10;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .brand h2 {
+        font-size: 16px;
+        letter-spacing: 1px;
+        color: #64b5f6;
+        font-weight: 700;
+      }
+      .brand small {
+        font-size: 11px;
+        color: #90a4ae;
+      }
+      .nav-links a {
+        color: #cfd8dc;
+        text-decoration: none;
+        margin-left: 20px;
+        font-size: 13px;
+      }
+      .nav-links a.active {
+        color: #4fc3f7;
+        border-bottom: 2px solid #4fc3f7;
+        padding-bottom: 4px;
+      }
 
-    /* Left Sidebar */
-    .sidebar {
-      width: 280px; background: rgba(8, 20, 40, 0.9); backdrop-filter: blur(8px);
-      padding: 16px; z-index: 5; border-right: 1px solid #162d4a; overflow-y: auto;
-    }
-    .panel-section { margin-bottom: 18px; }
-    .section-title { font-size: 11px; text-transform: uppercase; color: #90caf9; font-weight: 700; display: block; margin-bottom: 8px; }
-    .flex-between { display: flex; justify-content: space-between; align-items: center; }
-    .badge { background: #1565c0; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+      /* Main Layout */
+      .workspace {
+        display: flex;
+        flex: 1;
+        position: relative;
+        height: calc(100vh - 125px);
+        width: 100vw;
+      }
+      #globe-container {
+        flex: 1;
+        width: 100%;
+        height: 100%;
+        position: relative;
+        cursor: grab;
+        background: #02060d;
+      }
 
-    .var-btn {
-      width: 100%; text-align: left; background: #0c1a2d; color: #b0bec5; border: 1px solid #1a365d;
-      padding: 9px 12px; border-radius: 6px; margin-bottom: 6px; cursor: pointer; font-size: 13px;
-    }
-    .var-btn.active, .var-btn:hover { background: #1565c0; color: #fff; border-color: #42a5f5; }
+      /* Left Sidebar */
+      .sidebar {
+        width: 280px;
+        background: rgba(8, 20, 40, 0.9);
+        backdrop-filter: blur(8px);
+        padding: 16px;
+        z-index: 5;
+        border-right: 1px solid #162d4a;
+        overflow-y: auto;
+      }
+      .panel-section {
+        margin-bottom: 18px;
+      }
+      .section-title {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #90caf9;
+        font-weight: 700;
+        display: block;
+        margin-bottom: 8px;
+      }
+      .flex-between {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .badge {
+        background: #1565c0;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+      }
 
-    input[type=range] { width: 100%; accent-color: #29b6f6; margin-top: 6px; cursor: pointer; }
-    select { width: 100%; background: #0c1a2d; color: #fff; border: 1px solid #1a365d; padding: 8px; border-radius: 6px; }
-    .check-item { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; cursor: pointer; color: #cfd8dc; }
+      .var-btn {
+        width: 100%;
+        text-align: left;
+        background: #0c1a2d;
+        color: #b0bec5;
+        border: 1px solid #1a365d;
+        padding: 9px 12px;
+        border-radius: 6px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .var-btn.active,
+      .var-btn:hover {
+        background: #1565c0;
+        color: #fff;
+        border-color: #42a5f5;
+      }
 
-    /* Legend Overlay */
-    .legend-card {
-      position: absolute; bottom: 20px; right: 410px; background: rgba(5, 15, 30, 0.9);
-      padding: 10px 14px; border-radius: 6px; border: 1px solid #1c3d5a; font-size: 11px; z-index: 5;
-    }
-    .color-ramp {
-      height: 10px; width: 160px; margin: 6px 0; border-radius: 2px;
-      background: linear-gradient(to right, #00008b, #00ffff, #ffff00, #ff0000);
-    }
+      input[type="range"] {
+        width: 100%;
+        accent-color: #29b6f6;
+        margin-top: 6px;
+        cursor: pointer;
+      }
+      select {
+        width: 100%;
+        background: #0c1a2d;
+        color: #fff;
+        border: 1px solid #1a365d;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      .check-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 8px 0;
+        font-size: 13px;
+        cursor: pointer;
+        color: #cfd8dc;
+      }
 
-    /* Right Argo Panel */
-    .right-panel {
-      position: absolute; right: 16px; top: 16px; width: 370px; max-height: 94%;
-      background: rgba(8, 20, 40, 0.95); backdrop-filter: blur(10px);
-      border-radius: 8px; border: 1px solid #204060; box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-      padding: 16px; z-index: 6; overflow-y: auto;
-    }
-    .close-btn { background: none; border: none; color: #fff; font-size: 16px; cursor: pointer; }
-    .status-tag { font-size: 11px; color: #00e676; margin-bottom: 8px; }
-    .meta-row { font-size: 12px; margin-bottom: 4px; color: #b0bec5; }
-    .divider { border: 0; height: 1px; background: #1e3a5f; margin: 12px 0; }
-    .chart-box { height: 180px; width: 100%; margin-bottom: 12px; }
-    .val-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 8px; }
-    .val-table th, .val-table td { padding: 4px 6px; text-align: center; border-bottom: 1px solid #1a365d; }
-    .val-table th { color: #90caf9; }
+      /* Legend Overlay */
+      .legend-card {
+        position: absolute;
+        bottom: 20px;
+        right: 410px;
+        background: rgba(5, 15, 30, 0.9);
+        padding: 10px 14px;
+        border-radius: 6px;
+        border: 1px solid #1c3d5a;
+        font-size: 11px;
+        z-index: 5;
+      }
+      .color-ramp {
+        height: 10px;
+        width: 160px;
+        margin: 6px 0;
+        border-radius: 2px;
+        background: linear-gradient(
+          to right,
+          #00008b,
+          #00ffff,
+          #ffff00,
+          #ff0000
+        );
+      }
 
-    /* Bottom Gallery */
-    .bottom-gallery {
-      height: 70px; background: rgba(5, 14, 28, 0.98); border-top: 1px solid #142844;
-      display: flex; align-items: center; padding: 0 24px; gap: 16px; z-index: 10;
-    }
-    .gallery-title { font-size: 12px; color: #90a4ae; font-weight: 600; }
-    .gallery-cards { display: flex; gap: 10px; }
-    .slice-card {
-      width: 65px; height: 40px; border-radius: 4px; background: linear-gradient(135deg, #0d47a1, #e65100);
-      display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold;
-      border: 1px solid #204060; cursor: pointer; transition: 0.2s;
-    }
-    .slice-card:hover, .slice-card.active { border-color: #00e5ff; transform: scale(1.05); }
-  </style>
-</head>
-<body>
+      /* Right Argo Panel */
+      .right-panel {
+        position: absolute;
+        right: 16px;
+        top: 16px;
+        width: 370px;
+        max-height: 94%;
+        background: rgba(8, 20, 40, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 8px;
+        border: 1px solid #204060;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        padding: 16px;
+        z-index: 6;
+        overflow-y: auto;
+      }
+      .close-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      .status-tag {
+        font-size: 11px;
+        color: #00e676;
+        margin-bottom: 8px;
+      }
+      .meta-row {
+        font-size: 12px;
+        margin-bottom: 4px;
+        color: #b0bec5;
+      }
+      .divider {
+        border: 0;
+        height: 1px;
+        background: #1e3a5f;
+        margin: 12px 0;
+      }
+      .chart-box {
+        height: 180px;
+        width: 100%;
+        margin-bottom: 12px;
+      }
+      .val-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+        margin-top: 8px;
+      }
+      .val-table th,
+      .val-table td {
+        padding: 4px 6px;
+        text-align: center;
+        border-bottom: 1px solid #1a365d;
+      }
+      .val-table th {
+        color: #90caf9;
+      }
 
-  <header class="navbar">
-    <div class="brand">
-      <div style="font-size: 22px;">🌊</div>
-      <div>
-        <h2>3D OCEAN DIGITAL WORLD</h2>
-        <small>Explore · Analyze · A Cleaner, Safer Ocean</small>
+      /* Bottom Gallery */
+      .bottom-gallery {
+        height: 70px;
+        background: rgba(5, 14, 28, 0.98);
+        border-top: 1px solid #142844;
+        display: flex;
+        align-items: center;
+        padding: 0 24px;
+        gap: 16px;
+        z-index: 10;
+      }
+      .gallery-title {
+        font-size: 12px;
+        color: #90a4ae;
+        font-weight: 600;
+      }
+      .gallery-cards {
+        display: flex;
+        gap: 10px;
+      }
+      .slice-card {
+        width: 65px;
+        height: 40px;
+        border-radius: 4px;
+        background: linear-gradient(135deg, #0d47a1, #e65100);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: bold;
+        border: 1px solid #204060;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .slice-card:hover,
+      .slice-card.active {
+        border-color: #00e5ff;
+        transform: scale(1.05);
+      }
+    </style>
+  </head>
+  <body>
+    <header class="navbar">
+      <div class="brand">
+        <div style="font-size: 22px">🌊</div>
+        <div>
+          <h2>3D OCEAN DIGITAL WORLD</h2>
+          <small>Explore · Analyze · A Cleaner, Safer Ocean</small>
+        </div>
       </div>
-    </div>
-    <nav class="nav-links">
-      <a href="#">Home</a>
-      <a href="#" class="active">Visualize</a>
-      <a href="#">Compare</a>
-      <a href="#">Insights</a>
-      <a href="#">About</a>
-    </nav>
-  </header>
 
-  <div class="workspace">
-    <!-- Left Sidebar -->
-    <aside class="sidebar">
-      <div class="panel-section">
-        <label class="section-title">Variable</label>
-        <button class="var-btn active">🌡️ Temperature</button>
-        <button class="var-btn">💧 Salinity</button>
-        <button class="var-btn">〰️ Ocean Currents</button>
-        <button class="var-btn">🌊 Sea Surface Height</button>
-      </div>
+      <nav class="nav-links">
+        <a href="#">Home</a>
+        <a href="#" class="active">Visualize</a>
+        <a href="#">Compare</a>
+        <a href="#">Insights</a>
+        <a href="#">About</a>
+      </nav>
+    </header>
 
-      <div class="panel-section">
+    <div class="workspace">
+      <!-- Left Sidebar -->
+      <aside class="sidebar">
+        <div class="panel-section">
+          <label class="section-title">Variable</label>
+
+          <button class="var-btn active">🌡️ Temperature</button>
+          <button class="var-btn">💧 Salinity</button>
+          <button class="var-btn">〰️ Ocean Currents</button>
+          <button class="var-btn">🌊 Sea Surface Height</button>
+        </div>
+
+        <!-- Depth Section -->
+        <div class="panel-section">
+          <div class="flex-between">
+            <label class="section-title">Depth (m)</label>
+
+            <!-- UPDATED: Starting depth -->
+            <span class="badge" id="depth-val-display">5 m</span>
+          </div>
+
+          <!-- UPDATED: 0–92 m range -->
+          <input
+            type="range"
+            id="depth-slider"
+            min="0"
+            max="92"
+            step="1"
+            value="5"
+          />
+
+          <div
+            class="flex-between"
+            style="font-size: 10px; color: #78909c; margin-top: 4px"
+          >
+            <span>0 m</span>
+            <span>92 m</span>
+          </div>
+        </div>
+
+        <div class="panel-section">
+          <label class="section-title">Region</label>
+
+          <select id="region-select">
+            <option>Indian Ocean</option>
+            <option>Arabian Sea</option>
+            <option>Bay of Bengal</option>
+          </select>
+        </div>
+
+        <div class="panel-section">
+          <label class="section-title">Overlays</label>
+
+          <label class="check-item">
+            <input type="checkbox" checked />
+            Argo Floats
+          </label>
+
+          <label class="check-item">
+            <input type="checkbox" checked />
+            Currents (Streamlines)
+          </label>
+        </div>
+      </aside>
+
+      <!-- Main Globe Viewport -->
+      <main id="globe-container">
+        <div class="legend-card">
+          <span style="font-weight: bold; color: #90caf9">
+            Temperature (°C)
+          </span>
+
+          <div class="color-ramp"></div>
+
+          <div class="flex-between" style="font-size: 10px; color: #b0bec5">
+            <span>0°C</span>
+            <span>10°C</span>
+            <span>20°C</span>
+            <span>30°C</span>
+          </div>
+        </div>
+      </main>
+
+      <!-- Right Profile Analysis Panel -->
+      <aside class="right-panel" id="detail-panel">
         <div class="flex-between">
-          <label class="section-title">Depth (m)</label>
-          <span class="badge" id="depth-val-display">100 m</span>
+          <h3 id="float-name" style="font-size: 15px; color: #64b5f6">
+            Argo Float #12345
+          </h3>
+
+          <button
+            class="close-btn"
+            onclick="
+              document.getElementById('detail-panel').style.display = 'none'
+            "
+          >
+            ✕
+          </button>
         </div>
-        <input type="range" id="depth-slider" min="0" max="1000" step="50" value="100">
-        <div class="flex-between" style="font-size: 10px; color: #78909c; margin-top: 4px;">
-          <span>0 m</span>
-          <span>1000 m</span>
+
+        <div class="status-tag">🟢 Active</div>
+
+        <div class="meta-row">
+          <span>Location:</span>
+          <strong id="float-loc">15.2° N, 72.4° E</strong>
         </div>
-      </div>
 
-      <div class="panel-section">
-        <label class="section-title">Region</label>
-        <select id="region-select">
-          <option>Indian Ocean</option>
-          <option>Arabian Sea</option>
-          <option>Bay of Bengal</option>
-        </select>
-      </div>
-
-      <div class="panel-section">
-        <label class="section-title">Overlays</label>
-        <label class="check-item"><input type="checkbox" checked> Argo Floats</label>
-        <label class="check-item"><input type="checkbox" checked> Currents (Streamlines)</label>
-      </div>
-    </aside>
-
-    <!-- Main Globe Viewport -->
-    <main id="globe-container">
-      <div class="legend-card">
-        <span style="font-weight: bold; color: #90caf9;">Temperature (°C)</span>
-        <div class="color-ramp"></div>
-        <div class="flex-between" style="font-size: 10px; color: #b0bec5;">
-          <span>0°C</span>
-          <span>10°C</span>
-          <span>20°C</span>
-          <span>30°C</span>
+        <div class="meta-row">
+          <span>Max Depth:</span>
+          <strong>2000 m</strong>
         </div>
-      </div>
-    </main>
 
-    <!-- Right Profile Analysis Panel -->
-    <aside class="right-panel" id="detail-panel">
-      <div class="flex-between">
-        <h3 id="float-name" style="font-size: 15px; color: #64b5f6;">Argo Float #12345</h3>
-        <button class="close-btn" onclick="document.getElementById('detail-panel').style.display='none'">✕</button>
-      </div>
-      <div class="status-tag">🟢 Active</div>
-      <div class="meta-row"><span>Location:</span> <strong id="float-loc">15.2° N, 72.4° E</strong></div>
-      <div class="meta-row"><span>Max Depth:</span> <strong>2000 m</strong></div>
-      <div class="meta-row"><span>Sensors:</span> <strong>Temperature, Salinity</strong></div>
+        <div class="meta-row">
+          <span>Sensors:</span>
+          <strong>Temperature, Salinity</strong>
+        </div>
 
-      <hr class="divider">
-      <h4 style="font-size: 12px; margin-bottom: 6px; color: #cfd8dc;">Vertical Temperature Profile</h4>
-      <div class="chart-box">
-        <canvas id="depthProfileChart"></canvas>
-      </div>
+        <hr class="divider" />
 
-      <h4 style="font-size: 12px; margin-bottom: 6px; color: #cfd8dc;">Model vs Observation</h4>
-      <table class="val-table">
-        <thead>
-          <tr><th>Depth (m)</th><th>Model (°C)</th><th>Argo (°C)</th><th>Diff</th></tr>
-        </thead>
-        <tbody id="val-tbody"></tbody>
-      </table>
-    </aside>
-  </div>
+        <h4 style="font-size: 12px; margin-bottom: 6px; color: #cfd8dc">
+          Vertical Temperature Profile
+        </h4>
 
-  <footer class="bottom-gallery">
-    <span class="gallery-title">Depth Slices:</span>
-    <div class="gallery-cards">
-      <div class="slice-card" onclick="setDepth(0)">0 m</div>
-      <div class="slice-card" onclick="setDepth(50)">50 m</div>
-      <div class="slice-card active" onclick="setDepth(100)">100 m</div>
-      <div class="slice-card" onclick="setDepth(200)">200 m</div>
-      <div class="slice-card" onclick="setDepth(500)">500 m</div>
+        <div class="chart-box">
+          <canvas id="depthProfileChart"></canvas>
+        </div>
+
+        <h4 style="font-size: 12px; margin-bottom: 6px; color: #cfd8dc">
+          Model vs Observation
+        </h4>
+
+        <table class="val-table">
+          <thead>
+            <tr>
+              <th>Depth (m)</th>
+              <th>Model (°C)</th>
+              <th>Argo (°C)</th>
+              <th>Diff</th>
+            </tr>
+          </thead>
+
+          <tbody id="val-tbody"></tbody>
+        </table>
+      </aside>
     </div>
-  </footer>
 
-  <script src="globe_app.js"></script>
-</body>
+    <!-- Bottom Depth Gallery -->
+    <footer class="bottom-gallery">
+      <span class="gallery-title"> Depth Slices: </span>
+
+      <div class="gallery-cards">
+        <!-- UPDATED DEPTH SLICES -->
+        <div class="slice-card" onclick="setDepth(0)">0 m</div>
+
+        <div class="slice-card" onclick="setDepth(5)">5 m</div>
+
+        <div class="slice-card active" onclick="setDepth(10)">10 m</div>
+
+        <div class="slice-card" onclick="setDepth(20)">20 m</div>
+
+        <div class="slice-card" onclick="setDepth(50)">50 m</div>
+
+        <div class="slice-card" onclick="setDepth(90)">90 m</div>
+      </div>
+    </footer>
+
+    <!-- Main JavaScript -->
+    <script src="globe_app.js"></script>
+  </body>
 </html>
