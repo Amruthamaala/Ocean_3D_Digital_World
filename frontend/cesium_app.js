@@ -1,5 +1,5 @@
 // --- 1. Cesium Token & High-Res Photorealistic Globe Initialization ---
-Cesium.Ion.defaultAccessToken = "";
+Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IlVuZ0JnT0NEZldDRG96TXIiLCJqdGkiOiIwYzAwM2MzYy03YTlkLTRhODYtYTJhZi0yZThkYThkYzY5MmUiLCJpZCI6NDgxNzQxLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODg2NzE5MjJ9.zUp5Y2KoR1wJmPiFaqcqRjlucokIVEGzF3k69qXZbU4";
 
 const viewer = new Cesium.Viewer("cesiumContainer", {
   imageryProvider: new Cesium.ArcGisMapServerImageryProvider({

@@ -215,9 +215,9 @@ class CurrentStreamline {
     }
 
     const { u, v } = getOceanCurrentVector(this.lat, this.lon);
-    this.lon += (u * 0.4) + (Math.sin(this.life * 0.1) * 0.05);
-    this.lat += (v * 0.4) + (Math.cos(this.life * 0.1) * 0.05);
-
+// --- AFTER (Smooth, Gentle Drift) ---
+this.lon += (u * 0.1) + (Math.sin(this.life * 0.05) * 0.015);
+this.lat += (v * 0.1) + (Math.cos(this.life * 0.05) * 0.015);
     for (let i = this.historyLength - 1; i > 0; i--) {
       this.positions[i * 3] = this.positions[(i - 1) * 3];
       this.positions[i * 3 + 1] = this.positions[(i - 1) * 3 + 1];
