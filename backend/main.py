@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import requests
 from datetime import datetime, timedelta, timezone
-
+import xarray as xr
 
 # =========================================================
 # LOAD ENVIRONMENT VARIABLES
@@ -33,7 +33,49 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+DATA_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "..",
+    "data",
+    "ocean_model_bayofbengal.nc"
+)
 
+ocean_model = xr.open_dataset(DATA_PATH)
+
+print("Ocean Model loaded successfully")
+
+@app.get("/api/ocean-model")
+def get_ocean_model(
+    latitude: float,
+    longitude: float,
+    date: str
+):
+    profile = ocean_model.sel(
+        latitude=latitude,
+        longitude=longitude,
+        time=date,
+        method="nearest"
+    )
+
+    result = []
+
+    for i in range(len(profile.depth)):
+        result.append({
+            "depth": float(profile.depth.values[i]),
+            "temperature": float(profile.thetao.values[i]),
+            "salinity": float(profile.so.values[i]),
+            "u_current": float(profile.uo.values[i]),
+            "v_current": float(profile.vo.values[i])
+        })
+
+    return {
+        "location": {
+            "latitude": float(profile.latitude.values),
+            "longitude": float(profile.longitude.values)
+        },
+        "date": str(profile.time.values)[:10],
+        "profiles": result
+    }
 # =========================================================
 # HOME
 # =========================================================

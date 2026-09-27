@@ -4,6 +4,7 @@ let currentDepth = 5;
 let currentVariable = 'temp';
 let activeFloatData = null;
 let profileRequestId = 0;
+
 // Ensure container exists
 if (!container) {
   console.error("Critical Error: Element #globe-container not found in HTML!");
@@ -11,8 +12,8 @@ if (!container) {
 
 // --- 1. Scene, Camera, & WebGL Setup ---
 const scene = new THREE.Scene();
-const width = container.clientWidth || window.innerWidth * 0.5;
-const height = container.clientHeight || window.innerHeight * 0.7;
+const width = container ? (container.clientWidth || window.innerWidth * 0.5) : window.innerWidth * 0.5;
+const height = container ? (container.clientHeight || window.innerHeight * 0.7) : window.innerHeight * 0.7;
 
 const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
 camera.position.set(0, 0, 16);
@@ -20,7 +21,9 @@ camera.position.set(0, 0, 16);
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setSize(width, height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-container.appendChild(renderer.domElement);
+if (container) {
+  container.appendChild(renderer.domElement);
+}
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -100,8 +103,6 @@ function latLonToCanvasPixel(lat, lon) {
 }
 
 async function drawOceanField(depth, variable) {
-
-  // For now, only temperature is connected to real Copernicus data.
   if (variable !== "temp") {
     ctx.clearRect(0, 0, oceanCanvas.width, oceanCanvas.height);
     oceanTexture.needsUpdate = true;
@@ -109,12 +110,9 @@ async function drawOceanField(depth, variable) {
   }
 
   try {
-
     console.log(`Loading Copernicus temperature at depth ${depth}m...`);
 
-    const response = await fetch(
-      `http://127.0.0.1:8000/api/temperature?depth=${depth}`
-    );
+    const response = await fetch(`http://127.0.0.1:8000/api/temperature?depth=${depth}`);
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status}`);
@@ -126,110 +124,44 @@ async function drawOceanField(depth, variable) {
       throw new Error(result.message || "Temperature API failed");
     }
 
-    console.log(
-      `Received ${result.count} real Copernicus temperature points`
-    );
+    console.log(`Received ${result.count} real Copernicus temperature points`);
 
-    // Clear previous field
-    ctx.clearRect(
-      0,
-      0,
-      oceanCanvas.width,
-      oceanCanvas.height
-    );
+    ctx.clearRect(0, 0, oceanCanvas.width, oceanCanvas.height);
 
-
-    // Find temperature range
     const values = result.data.map(point => point.value);
-
     const minTemp = Math.min(...values);
     const maxTemp = Math.max(...values);
 
-
-    // Draw each Copernicus grid point
     result.data.forEach(point => {
+      const pixel = latLonToCanvasPixel(point.lat, point.lon);
+      const normalized = (point.value - minTemp) / (maxTemp - minTemp || 1);
 
-      const pixel = latLonToCanvasPixel(
-        point.lat,
-        point.lon
-      );
-
-      // Normalize temperature
-      const normalized =
-        (point.value - minTemp) /
-        (maxTemp - minTemp || 1);
-
-
-      // Blue → cyan → yellow → red
       let color;
-
       if (normalized < 0.33) {
-
         const t = normalized / 0.33;
-
-        color = `rgb(
-          ${Math.round(0 + 0 * t)},
-          ${Math.round(80 + 175 * t)},
-          ${Math.round(255 - 0 * t)}
-        )`;
-
+        color = `rgb(${Math.round(0 + 0 * t)}, ${Math.round(80 + 175 * t)}, ${Math.round(255 - 0 * t)})`;
       } else if (normalized < 0.66) {
-
         const t = (normalized - 0.33) / 0.33;
-
-        color = `rgb(
-          ${Math.round(0 + 255 * t)},
-          ${Math.round(255)},
-          ${Math.round(255 - 255 * t)}
-        )`;
-
+        color = `rgb(${Math.round(0 + 255 * t)}, ${Math.round(255)}, ${Math.round(255 - 255 * t)})`;
       } else {
-
         const t = (normalized - 0.66) / 0.34;
-
-        color = `rgb(
-          255,
-          ${Math.round(255 - 255 * t)},
-          0
-        )`;
+        color = `rgb(255, ${Math.round(255 - 255 * t)}, 0)`;
       }
 
-
       ctx.fillStyle = color;
-
-      // Small glow around each grid point
       ctx.globalAlpha = 0.55;
-
       ctx.beginPath();
-
-      ctx.arc(
-        pixel.x,
-        pixel.y,
-        3,
-        0,
-        Math.PI * 2
-      );
-
+      ctx.arc(pixel.x, pixel.y, 3, 0, Math.PI * 2);
       ctx.fill();
     });
 
-
     ctx.globalAlpha = 1.0;
-
     oceanTexture.needsUpdate = true;
 
-
-    console.log(
-      `Copernicus temperature range: ${minTemp.toFixed(2)}°C - ${maxTemp.toFixed(2)}°C`
-    );
+    console.log(`Copernicus temperature range: ${minTemp.toFixed(2)}°C - ${maxTemp.toFixed(2)}°C`);
 
   } catch (error) {
-
-    console.error(
-      "Could not load Copernicus temperature data:",
-      error
-    );
-
+    console.error("Could not load Copernicus temperature data:", error);
   }
 }
 
@@ -299,9 +231,9 @@ class CurrentStreamline {
     }
 
     const { u, v } = getOceanCurrentVector(this.lat, this.lon);
-// --- AFTER (Smooth, Gentle Drift) ---
-this.lon += (u * 0.1) + (Math.sin(this.life * 0.05) * 0.015);
-this.lat += (v * 0.1) + (Math.cos(this.life * 0.05) * 0.015);
+    this.lon += (u * 0.1) + (Math.sin(this.life * 0.05) * 0.015);
+    this.lat += (v * 0.1) + (Math.cos(this.life * 0.05) * 0.015);
+
     for (let i = this.historyLength - 1; i > 0; i--) {
       this.positions[i * 3] = this.positions[(i - 1) * 3];
       this.positions[i * 3 + 1] = this.positions[(i - 1) * 3 + 1];
@@ -331,36 +263,21 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function drawArgoFloats() {
-  // Remove existing pins before drawing fresh data
   while (pinGroup.children.length > 0) {
     const pin = pinGroup.children[0];
-
     pin.geometry.dispose();
     pin.material.dispose();
-
     pinGroup.remove(pin);
   }
 
-  // Create one pin for every real Argo float
   argoData.forEach(float => {
-    const pos = latLonToVector3(
-      float.lat,
-      float.lon,
-      RADIUS + 0.12
-    );
-
+    const pos = latLonToVector3(float.lat, float.lon, RADIUS + 0.12);
     const pin = new THREE.Mesh(
       new THREE.SphereGeometry(0.18, 16, 16),
-      new THREE.MeshBasicMaterial({
-        color: 0x00ff88
-      })
+      new THREE.MeshBasicMaterial({ color: 0x00ff88 })
     );
-
     pin.position.copy(pos);
-
-    // Store complete real Argo float information
     pin.userData = float;
-
     pinGroup.add(pin);
   });
 
@@ -376,13 +293,11 @@ window.addEventListener("click", (e) => {
   const hits = raycaster.intersectObjects(pinGroup.children);
   if (hits.length > 0) openArgoProfile(hits[0].object.userData);
 });
+
 async function loadArgoFloats() {
   try {
     console.log("Loading real Argo floats...");
-
-    const response = await fetch(
-      "http://127.0.0.1:8000/api/argo-floats"
-    );
+    const response = await fetch("http://127.0.0.1:8000/api/argo-floats");
 
     if (!response.ok) {
       throw new Error(`Argo API failed: ${response.status}`);
@@ -395,29 +310,84 @@ async function loadArgoFloats() {
     }
 
     argoData = result.floats;
+    console.log(`Loaded ${argoData.length} real Argo floats`, argoData);
 
-    console.log(
-      `Loaded ${argoData.length} real Argo floats`
-    );
-
-    console.log(argoData);
-
-    // Draw the real floats on the globe
     drawArgoFloats();
 
-    // Open the first real float
     if (argoData.length > 0) {
       openArgoProfile(argoData[0]);
     }
 
   } catch (error) {
-    console.error(
-      "Could not load real Argo floats:",
-      error
-    );
+    console.error("Could not load real Argo floats:", error);
   }
 }
-// --- 6. Chart.js In-situ vs Model Comparison with Safe Fallbacks ---
+
+async function getOceanModelProfile(latitude, longitude, date) {
+  try {
+    const url = `http://127.0.0.1:8000/api/ocean-model?latitude=${latitude}&longitude=${longitude}&date=${date}`;
+    console.log("Requesting Ocean Model:", url);
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Ocean Model API failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Ocean Model response:", data);
+    return data;
+
+  } catch (error) {
+    console.error("Ocean Model request failed:", error);
+    return null;
+  }
+}
+
+function interpolateModelValues(modelProfiles, targetDepths) {
+  console.log("MODEL PROFILES RECEIVED:", modelProfiles);
+  console.log("ARGO TARGET DEPTHS:", targetDepths);
+
+  const validProfiles = modelProfiles
+    .map(p => ({
+      depth: Number(p.depth),
+      temperature: Number(p.temperature)
+    }))
+    .filter(p => Number.isFinite(p.depth) && Number.isFinite(p.temperature))
+    .sort((a, b) => a.depth - b.depth);
+
+  console.log("VALID MODEL PROFILES:", validProfiles);
+
+  if (validProfiles.length === 0) return targetDepths.map(() => null);
+
+  return targetDepths.map(d => {
+    const targetDepth = Number(d);
+
+    if (!Number.isFinite(targetDepth)) return null;
+
+    // Clamp values if target depth goes beyond model limits
+    if (targetDepth <= validProfiles[0].depth) {
+      return validProfiles[0].temperature;
+    }
+    if (targetDepth >= validProfiles[validProfiles.length - 1].depth) {
+      return validProfiles[validProfiles.length - 1].temperature;
+    }
+
+    for (let i = 0; i < validProfiles.length - 1; i++) {
+      const p1 = validProfiles[i];
+      const p2 = validProfiles[i + 1];
+
+      if (targetDepth >= p1.depth && targetDepth <= p2.depth) {
+        const ratio = (targetDepth - p1.depth) / (p2.depth - p1.depth);
+        return p1.temperature + ratio * (p2.temperature - p1.temperature);
+      }
+    }
+
+    return null;
+  });
+}
+
+// --- 6. Chart.js In-situ vs Model Comparison ---
 async function openArgoProfile(float) {
   const requestId = ++profileRequestId;
   activeFloatData = float;
@@ -486,23 +456,68 @@ async function openArgoProfile(float) {
     observedValues = Array.isArray(data.observed_values)
       ? data.observed_values
       : (Array.isArray(data.temperatures) ? data.temperatures : []);
-    modelValues = Array.isArray(data.model_values) ? data.model_values : [];
-    differences = Array.isArray(data.differences) ? data.differences : [];
-    unit = data.unit || "°C";
-    argoTime = data.profile_time || float.time || "—";
 
-    const modelTimes = Array.isArray(data.copernicus_times)
-      ? [...new Set(data.copernicus_times.filter(Boolean))]
-      : [];
-    copernicusTime = modelTimes.length === 1
-      ? formatTimestamp(modelTimes[0])
-      : (modelTimes.length > 1 ? modelTimes.map(formatTimestamp).join(", ") : "—");
+    argoTime = data.profile_time || float.time || "—";
+    unit = data.unit || "°C";
+
+    // ===============================
+    // GET COPERNICUS OCEAN MODEL DATA
+    // ===============================
+    const modelLatitude = Number(float.lat);
+    const modelLongitude = Number(float.lon);
+
+    let modelDate;
+    try {
+      const parsedDate = new Date(argoTime);
+      modelDate = !isNaN(parsedDate.getTime())
+        ? parsedDate.toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+    } catch (e) {
+      modelDate = new Date().toISOString().slice(0, 10);
+    }
+
+    console.log("Getting Ocean Model data for:", { modelLatitude, modelLongitude, modelDate });
+
+    const oceanModelData = await getOceanModelProfile(modelLatitude, modelLongitude, modelDate);
+
+    if (oceanModelData && Array.isArray(oceanModelData.profiles)) {
+      console.log("========== COPERNICUS MODEL ==========");
+      console.log("Model location:", oceanModelData.location);
+      console.log("Model date:", oceanModelData.date);
+      console.log("Model profiles:", oceanModelData.profiles);
+
+      copernicusTime = oceanModelData.date || modelDate;
+
+      modelValues = interpolateModelValues(oceanModelData.profiles, depths).map(value =>
+        Number.isFinite(Number(value)) ? Number(value) : null
+      );
+
+      console.log("COPERNICUS TEMPERATURE VALUES:", modelValues);
+    } else {
+      console.warn("No Ocean Model data received");
+      modelValues = depths.map(() => null);
+    }
+
+    // Fixed typo: was 'ddifferences'
+    differences = depths.map((depth, index) => {
+      const observed = Number(observedValues[index]);
+      const model = Number(modelValues[index]);
+
+      if (Number.isFinite(observed) && Number.isFinite(model)) {
+        return observed - model;
+      }
+      return null;
+    });
+
+    console.log("ARGO VALUES:", observedValues);
+    console.log("COPERNICUS VALUES:", modelValues);
+    console.log("DIFFERENCES:", differences);
+
   } catch (error) {
     console.error("Could not load real Argo profile data:", error);
     errorMessage = "Could not load profile data";
   }
 
-  // Ignore a slower response from an earlier float click.
   if (requestId !== profileRequestId) return;
 
   setMetadata({
@@ -558,10 +573,10 @@ async function openArgoProfile(float) {
     return;
   }
 
-  const ctx = canvas.getContext("2d");
+  const ctxChart = canvas.getContext("2d");
   if (profileChart) profileChart.destroy();
 
-  profileChart = new Chart(ctx, {
+  profileChart = new Chart(ctxChart, {
     type: "scatter",
     data: {
       datasets: [
@@ -654,51 +669,29 @@ function switchVariable(variableKey) {
 }
 
 async function setDepth(val, targetEl) {
-
   currentDepth = parseFloat(val);
 
   const slider = document.getElementById("depth-slider");
   const display = document.getElementById("depth-val-display");
 
-  if (slider) {
-    slider.value = currentDepth;
-  }
+  if (slider) slider.value = currentDepth;
+  if (display) display.innerText = `${currentDepth} m`;
 
-  if (display) {
-    display.innerText = `${currentDepth} m`;
-  }
-
-
-  // Highlight selected depth card
   if (targetEl) {
-
-    document
-      .querySelectorAll(".slice-card")
-      .forEach(el => el.classList.remove("active"));
-
+    document.querySelectorAll(".slice-card").forEach(el => el.classList.remove("active"));
     targetEl.classList.add("active");
   }
 
-
-  // Load real Copernicus data for the selected depth
-  await drawOceanField(
-    currentDepth,
-    currentVariable
-  );
+  await drawOceanField(currentDepth, currentVariable);
 }
+
 const sliderEl = document.getElementById("depth-slider");
-
 if (sliderEl) {
-
   sliderEl.addEventListener("change", (e) => {
-
-    setDepth(
-      e.target.value
-    );
-
+    setDepth(e.target.value);
   });
-
 }
+
 function setGlobeOrientation(rotY, rotX) {
   earthMesh.rotation.y = rotY;
   earthMesh.rotation.x = rotX;
@@ -727,6 +720,7 @@ function animate() {
 animate();
 
 window.addEventListener("resize", () => {
+  if (!container) return;
   const w = container.clientWidth;
   const h = container.clientHeight;
   camera.aspect = w / h;
