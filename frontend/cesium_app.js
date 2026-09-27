@@ -1,5 +1,7 @@
-// --- 1. Cesium Token & High-Res Photorealistic Globe Initialization ---
+
+// --- 1. Cesium Token & High-Res git checkout --theirs backend/main.pyPhotorealistic Globe Initialization ---
 Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IlVuZ0JnT0NEZldDRG96TXIiLCJqdGkiOiIwYzAwM2MzYy03YTlkLTRhODYtYTJhZi0yZThkYThkYzY5MmUiLCJpZCI6NDgxNzQxLCJpc3MiOiJodHRwczovL2FwaS5jZXNpdW0uY29tIiwiYXVkIjoidW5kZWZpbmVkX2RlZmF1bHQiLCJpYXQiOjE3ODg2NzE5MjJ9.zUp5Y2KoR1wJmPiFaqcqRjlucokIVEGzF3k69qXZbU4";
+
 
 const viewer = new Cesium.Viewer("cesiumContainer", {
   imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
@@ -127,56 +129,300 @@ handler.setInputAction((click) => {
 // --- 4. Chart.js In-situ vs Model Comparison ---
 let profileChart = null;
 
-function openArgoProfile(float) {
+async function openArgoProfile(float) {
+
+  // ------------------------------------------------------
+  // SHOW PROFILE PANEL
+  // ------------------------------------------------------
+
   document.getElementById("detail-panel").style.display = "block";
-  document.getElementById("float-name").innerText = float.name;
-  document.getElementById("float-loc").innerText = `${float.lat}° N, ${float.lon}° E`;
 
-  const depths = [0, 50, 100, 200, 500, 1000, 2000];
-  const modelTemp = [28.5, 25.4, 22.4, 18.2, 11.8, 6.1, 2.5];
-  const argoTemp  = [28.7, 25.9, 22.8, 18.0, 12.1, 6.4, 2.6];
+  // Your backend gives us "id", not "name"
+  document.getElementById("float-name").innerText =
+    `Argo Profile ${float.id}`;
 
-  // Fill Validation Table
+  document.getElementById("float-loc").innerText =
+    `${Number(float.lat).toFixed(2)}° N, ${Number(float.lon).toFixed(2)}° E`;
+
+
+  // ------------------------------------------------------
+  // SHOW LOADING MESSAGE
+  // ------------------------------------------------------
+
   const tbody = document.getElementById("val-tbody");
-  tbody.innerHTML = "";
-  for (let i = 0; i < depths.length; i++) {
-    const diff = (argoTemp[i] - modelTemp[i]).toFixed(1);
-    const diffSign = diff >= 0 ? `+${diff}` : diff;
-    tbody.innerHTML += `
-      <tr>
-        <td>${depths[i]}</td>
-        <td>${modelTemp[i]}</td>
-        <td>${argoTemp[i]}</td>
-        <td style="color:${diff >= 0 ? '#4fc3f7' : '#ff8a80'}">${diffSign}</td>
-      </tr>
-    `;
+
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="4">Loading real Argo observations...</td>
+    </tr>
+  `;
+
+
+  try {
+
+    // ----------------------------------------------------
+    // REQUEST REAL ARGO PROFILE FROM OUR BACKEND
+    // ----------------------------------------------------
+
+    const response = await fetch(
+      `http://127.0.0.1:8000/api/argo-profile?platform_number=${encodeURIComponent(float.id)}`
+    );
+
+
+    if (!response.ok) {
+      throw new Error(`HTTP error: ${response.status}`);
+    }
+
+
+    const data = await response.json();
+
+
+    // ----------------------------------------------------
+    // CHECK BACKEND RESPONSE
+    // ----------------------------------------------------
+
+    if (data.status !== "success") {
+
+      throw new Error(
+        data.message || "Could not load Argo profile"
+      );
+    }
+
+
+    console.log("REAL ARGO PROFILE:", data);
+
+
+    // ----------------------------------------------------
+    // REAL DATA FROM ARGO
+    // ----------------------------------------------------
+
+    const depths = data.depths || [];
+
+    const argoTemp = data.observed_values || [];
+
+    const salinity = data.salinity || [];
+
+
+    // Make sure we actually received observations
+
+    if (depths.length === 0 || argoTemp.length === 0) {
+
+      throw new Error(
+        "No temperature observations found in this profile"
+      );
+    }
+
+
+    // ----------------------------------------------------
+    // UPDATE PROFILE INFORMATION
+    // ----------------------------------------------------
+
+    document.getElementById("float-name").innerText =
+      `Argo Profile ${data.profile_id}`;
+
+    document.getElementById("float-loc").innerText =
+      `${Number(data.latitude).toFixed(2)}° N, ` +
+      `${Number(data.longitude).toFixed(2)}° E`;
+
+
+    // ----------------------------------------------------
+    // VALIDATION TABLE
+    // ----------------------------------------------------
+    // At this stage we only have REAL ARGO data.
+    //
+    // Copernicus model comparison will be added next.
+    // Therefore we do NOT use fake model values.
+    // ----------------------------------------------------
+
+    tbody.innerHTML = "";
+
+
+    for (let i = 0; i < depths.length; i++) {
+
+      const depth = Number(depths[i]).toFixed(1);
+
+      const temperature =
+        argoTemp[i] !== null && argoTemp[i] !== undefined
+          ? Number(argoTemp[i]).toFixed(2)
+          : "—";
+
+
+      tbody.innerHTML += `
+        <tr>
+          <td>${depth}</td>
+          <td>—</td>
+          <td>${temperature}</td>
+          <td>—</td>
+        </tr>
+      `;
+    }
+
+
+    // ----------------------------------------------------
+    // DRAW REAL ARGO TEMPERATURE PROFILE
+    // ----------------------------------------------------
+
+    const ctx =
+      document
+        .getElementById("depthProfileChart")
+        .getContext("2d");
+
+
+    if (profileChart) {
+      profileChart.destroy();
+    }
+
+
+    profileChart = new Chart(ctx, {
+
+      type: "line",
+
+      data: {
+
+        labels: depths,
+
+        datasets: [
+
+          {
+            label: "Argo (Observed)",
+
+            data: argoTemp,
+
+            borderColor: "#00e5ff",
+
+            borderWidth: 2,
+
+            pointRadius: 2,
+
+            pointHoverRadius: 5,
+
+            fill: false,
+
+            tension: 0.15
+          }
+
+        ]
+      },
+
+
+      options: {
+
+        responsive: true,
+
+        indexAxis: "y",
+
+        scales: {
+
+          y: {
+
+            reverse: true,
+
+            title: {
+              display: true,
+              text: "Depth (m)",
+              color: "#cfd8dc"
+            },
+
+            ticks: {
+              color: "#cfd8dc"
+            },
+
+            grid: {
+              color: "#162d4a"
+            }
+          },
+
+
+          x: {
+
+            title: {
+              display: true,
+              text: "Temperature (°C)",
+              color: "#cfd8dc"
+            },
+
+            ticks: {
+              color: "#cfd8dc"
+            },
+
+            grid: {
+              color: "#162d4a"
+            }
+          }
+        },
+
+
+        plugins: {
+
+          legend: {
+
+            labels: {
+              color: "#cfd8dc"
+            }
+          },
+
+          tooltip: {
+
+            callbacks: {
+
+              title: function(context) {
+
+                const index = context[0].dataIndex;
+
+                return `Depth: ${Number(depths[index]).toFixed(1)} m`;
+              },
+
+              label: function(context) {
+
+                return `Temperature: ${Number(context.raw).toFixed(2)} °C`;
+              }
+            }
+          }
+        }
+      }
+    });
+
+
+    // ----------------------------------------------------
+    // LOG SALINITY FOR NOW
+    // ----------------------------------------------------
+
+    console.log(
+      "Real Argo salinity observations:",
+      salinity
+    );
+
+    console.log(
+      `Loaded ${depths.length} real Argo measurements`
+    );
+
   }
 
-  // Draw Vertical Profile Chart (Depth inverted vertically)
-  const ctx = document.getElementById("depthProfileChart").getContext("2d");
-  if (profileChart) profileChart.destroy();
 
-  profileChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: depths,
-      datasets: [
-        { label: "Argo (Observed)", data: argoTemp, borderColor: "#00e5ff", borderWidth: 2, pointRadius: 4 },
-        { label: "Model", data: modelTemp, borderColor: "#ff5252", borderWidth: 2, borderDash: [4, 4], pointRadius: 4 }
-      ]
-    },
-    options: {
-      responsive: true,
-      indexAxis: "y",
-      scales: {
-        y: { reverse: true, ticks: { color: "#cfd8dc" }, grid: { color: "#162d4a" } },
-        x: { ticks: { color: "#cfd8dc" }, grid: { color: "#162d4a" } }
-      },
-      plugins: { legend: { labels: { color: "#cfd8dc" } } }
-    }
-  });
+  // ------------------------------------------------------
+  // HANDLE ERRORS
+  // ------------------------------------------------------
+
+  catch (error) {
+
+    console.error(
+      "Error loading Argo profile:",
+      error
+    );
+
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4">
+          Failed to load Argo profile
+        </td>
+      </tr>
+    `;
+
+    document.getElementById("float-name").innerText =
+      "Argo Profile Error";
+  }
 }
-
 function closeDetailPanel() {
   document.getElementById("detail-panel").style.display = "none";
 }
