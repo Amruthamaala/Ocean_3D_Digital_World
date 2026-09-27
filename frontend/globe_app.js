@@ -477,6 +477,7 @@ async function openArgoProfile(float) {
     }
 
     const data = await res.json();
+    console.log("REAL ARGO PROFILE:", data);
     if (data.status !== "success") {
       throw new Error(data.message || "Argo profile API failed");
     }

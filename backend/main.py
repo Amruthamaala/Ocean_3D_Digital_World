@@ -145,7 +145,7 @@ def get_argo_floats():
 
         # Convert JSON response into Python object
         data = response.json()
-
+        
 
         # -------------------------------------------------
         # PROCESS FLOAT DATA
@@ -191,13 +191,7 @@ def get_argo_floats():
             # Get float/platform ID
             # ---------------------------------------------
 
-            platform_id = profile.get(
-                "platform_id",
-                profile.get(
-                    "platform_number",
-                    "unknown"
-                )
-            )
+            platform_id = profile.get("_id", "unknown")
 
 
             # ---------------------------------------------
@@ -279,5 +273,298 @@ def get_argo_floats():
         return {
             "status": "error",
             "message": "Error processing Argo data",
+            "error": str(e)
+        }
+    # =========================================================
+# GET REAL ARGO PROFILE
+# =========================================================
+
+@app.get("/api/argo-profile")
+# =========================================================
+# GET REAL ARGO PROFILE DATA
+# =========================================================
+
+@app.get("/api/argo-profile")
+def get_argo_profile(platform_number: str):
+
+    if not ARGO_API_KEY:
+        return {
+            "status": "error",
+            "message": "Argo API key not found"
+        }
+
+    profile_id = platform_number
+
+    headers = {
+        "x-argokey": ARGO_API_KEY
+    }
+
+    # -----------------------------------------------------
+    # Request actual measurements
+    # -----------------------------------------------------
+
+    params = {
+        "id": profile_id,
+        "data": (
+            "pressure,"
+            "temperature,"
+            "salinity,"
+            "pressure_argoqc,"
+            "temperature_argoqc,"
+            "salinity_argoqc"
+        )
+    }
+
+    try:
+
+        response = requests.get(
+            "https://argovis-api.colorado.edu/argo",
+            params=params,
+            headers=headers,
+            timeout=30
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        # -------------------------------------------------
+        # Check response
+        # -------------------------------------------------
+
+        if not isinstance(data, list) or len(data) == 0:
+
+            return {
+                "status": "error",
+                "message": "No Argo profile found",
+                "profile_id": profile_id
+            }
+
+        profile = data[0]
+
+        # -------------------------------------------------
+        # BASIC PROFILE INFORMATION
+        # -------------------------------------------------
+
+        timestamp = profile.get("timestamp")
+
+        geolocation = profile.get(
+            "geolocation",
+            {}
+        )
+
+        coordinates = geolocation.get(
+            "coordinates",
+            []
+        )
+
+        longitude = None
+        latitude = None
+
+        if len(coordinates) >= 2:
+            longitude = coordinates[0]
+            latitude = coordinates[1]
+
+        cycle_number = profile.get("cycle_number")
+
+        # -------------------------------------------------
+        # FIND VARIABLE POSITIONS
+        # -------------------------------------------------
+
+        data_info = profile.get("data_info", [])
+
+        if len(data_info) == 0:
+
+            return {
+                "status": "error",
+                "message": "Argo profile does not contain data_info",
+                "profile_id": profile_id
+            }
+
+        variable_names = data_info[0]
+
+        measurements = profile.get("data", [])
+
+        # -------------------------------------------------
+        # HELPER FUNCTION
+        # -------------------------------------------------
+
+        def get_variable(variable_name):
+
+            if variable_name not in variable_names:
+                return []
+
+            index = variable_names.index(variable_name)
+
+            if index >= len(measurements):
+                return []
+
+            return measurements[index]
+
+        # -------------------------------------------------
+        # GET MEASUREMENTS
+        # -------------------------------------------------
+
+        pressures = get_variable("pressure")
+
+        temperatures = get_variable("temperature")
+
+        salinities = get_variable("salinity")
+
+        pressure_qc = get_variable("pressure_argoqc")
+
+        temperature_qc = get_variable(
+            "temperature_argoqc"
+        )
+
+        salinity_qc = get_variable(
+            "salinity_argoqc"
+        )
+
+        # -------------------------------------------------
+        # MAKE SURE ARRAYS EXIST
+        # -------------------------------------------------
+
+        if not pressures or not temperatures:
+
+            return {
+                "status": "error",
+                "message": "Temperature or pressure data not available",
+                "profile_id": profile_id
+            }
+
+        # -------------------------------------------------
+        # BUILD CLEAN PROFILE
+        # -------------------------------------------------
+
+        profile_data = []
+
+        for i in range(len(pressures)):
+
+            pressure = pressures[i] if i < len(pressures) else None
+
+            temperature = (
+                temperatures[i]
+                if i < len(temperatures)
+                else None
+            )
+
+            salinity = (
+                salinities[i]
+                if i < len(salinities)
+                else None
+            )
+
+            temp_qc = (
+                temperature_qc[i]
+                if i < len(temperature_qc)
+                else None
+            )
+
+            salinity_qc_value = (
+                salinity_qc[i]
+                if i < len(salinity_qc)
+                else None
+            )
+
+            # Ignore levels without pressure
+            if pressure is None:
+                continue
+
+            profile_data.append({
+                "depth": pressure,
+                "temperature": temperature,
+                "salinity": salinity,
+                "temperature_qc": temp_qc,
+                "salinity_qc": salinity_qc_value
+            })
+
+        # -------------------------------------------------
+        # ARRAYS FOR FRONTEND
+        # -------------------------------------------------
+
+        depths = [
+            point["depth"]
+            for point in profile_data
+        ]
+
+        observed_temperatures = [
+            point["temperature"]
+            for point in profile_data
+        ]
+
+        observed_salinity = [
+            point["salinity"]
+            for point in profile_data
+        ]
+
+        # -------------------------------------------------
+        # RETURN RESULT
+        # -------------------------------------------------
+
+        return {
+
+            "status": "success",
+
+            "profile_id": profile_id,
+
+            "latitude": latitude,
+
+            "longitude": longitude,
+
+            "cycle_number": cycle_number,
+
+            "profile_time": timestamp,
+
+            "unit": "°C",
+
+            "depths": depths,
+
+            "observed_values": observed_temperatures,
+
+            "temperatures": observed_temperatures,
+
+            "salinity": observed_salinity,
+
+            "profile_data": profile_data,
+
+            "message": "Real Argo temperature, pressure and salinity data retrieved successfully"
+        }
+
+    # =====================================================
+    # HTTP ERROR
+    # =====================================================
+
+    except requests.exceptions.HTTPError as e:
+
+        return {
+            "status": "error",
+            "message": "Argo API returned an HTTP error",
+            "error": str(e),
+            "status_code": response.status_code,
+            "response": response.text[:1000]
+        }
+
+    # =====================================================
+    # CONNECTION ERROR
+    # =====================================================
+
+    except requests.exceptions.RequestException as e:
+
+        return {
+            "status": "error",
+            "message": "Could not connect to Argo API",
+            "error": str(e)
+        }
+
+    # =====================================================
+    # OTHER ERROR
+    # =====================================================
+
+    except Exception as e:
+
+        return {
+            "status": "error",
+            "message": "Error processing Argo profile",
             "error": str(e)
         }
