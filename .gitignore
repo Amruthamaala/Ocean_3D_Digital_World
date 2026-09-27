@@ -38,3 +38,14 @@ backend/data/
 # =========================
 .DS_Store
 Thumbs.db
+# Backend environment
+backend/.env
+backend/.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Other virtual environments
+.venv/
+.venv-1/
