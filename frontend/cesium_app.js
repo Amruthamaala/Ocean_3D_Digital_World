@@ -1,5 +1,4 @@
-// --- 1. Cesium Token & High-Res Photorealistic Globe Initialization ---
-Cesium.Ion.defaultAccessToken = "";
+
 
 const viewer = new Cesium.Viewer("cesiumContainer", {
   imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
