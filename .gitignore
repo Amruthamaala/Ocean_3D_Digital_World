@@ -14,10 +14,10 @@ venv/
 .env.*
 !.env.example
 
-# =========================
 # Scientific datasets
-# =========================
 *.nc
+!data/*.nc
+
 *.nc4
 *.h5
 *.hdf5
