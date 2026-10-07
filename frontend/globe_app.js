@@ -331,7 +331,7 @@ async function loadArgoFloats() {
   }
 }
 
-// Add or replace the click listener inside globe_app.js:
+// Replace the click event handler in globe_app_2.js around line 268:
 window.addEventListener("click", (e) => {
   if (!container) return;
   const rect = renderer.domElement.getBoundingClientRect();
@@ -341,27 +341,25 @@ window.addEventListener("click", (e) => {
   mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
-
-  // Check click on Argo Floats or Earth Surface
-  const floatHits = raycaster.intersectObjects(pinGroup.children);
-  const earthHits = raycaster.intersectObject(earthMesh);
-
-  let lat, lon;
-
-  if (floatHits.length > 0) {
-    const float = floatHits[0].object.userData;
-    lat = float.lat;
-    lon = float.lon;
-  } else if (earthHits.length > 0) {
-    const point = earthHits[0].point;
-    lat = (90 - (Math.acos(point.y / RADIUS) * 180 / Math.PI)).toFixed(2);
-    lon = (((Math.atan2(point.z, -point.x) * 180 / Math.PI) - 180)).toFixed(2);
+  
+  // 1. Check for clicks on Argo float markers
+  const hits = raycaster.intersectObjects(pinGroup.children);
+  if (hits.length > 0) {
+    const float = hits[0].object.userData;
+    // Navigate to visualization page with parameters
+    window.location.href = `visualization.html?lat=${float.lat}&lon=${float.lon}&depth=${currentDepth}&var=${currentVariable}`;
+    return;
   }
 
-   if (lat && lon) {
-    // Navigate to dedicated visualization page with parameters
-    const targetUrl = `visualization.html?lat=${lat}&lon=${lon}&depth=${currentDepth}&var=${currentVariable}`;
-    window.location.href = targetUrl;
+  // 2. Check for clicks on any point on the Globe surface
+  const globeHits = raycaster.intersectObject(earthMesh);
+  if (globeHits.length > 0) {
+    const point = globeHits[0].point;
+    const lat = (90 - (Math.acos(point.y / RADIUS) * 180 / Math.PI)).toFixed(2);
+    const lon = (((Math.atan2(point.z, -point.x) * 180 / Math.PI) - 180)).toFixed(2);
+    
+    // Navigate to visualization page for the clicked coordinate
+    window.location.href = `visualization.html?lat=${lat}&lon=${lon}&depth=${currentDepth}&var=${currentVariable}`;
   }
 });
 

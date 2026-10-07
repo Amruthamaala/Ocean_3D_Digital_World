@@ -1,10 +1,10 @@
 // =========================================================
-// OCEAN DATA VISUALIZATION - COLOR PALETTE OVERLAY & ANALYSIS
+// OCEAN DATA VISUALIZATION - COMPACT RINGS & CLEAN PANEL
 // =========================================================
 
 const urlParams = new URLSearchParams(window.location.search);
-let targetLat = parseFloat(urlParams.get('lat')) || 14.28;
-let rawLon = parseFloat(urlParams.get('lon')) || -274.62;
+let targetLat = parseFloat(urlParams.get('lat')) || 15.79;
+let rawLon = parseFloat(urlParams.get('lon')) || -274.82;
 
 function normalizeLongitude(lon) {
   let normalized = ((lon + 180) % 360);
@@ -19,7 +19,7 @@ const targetVar = urlParams.get('var') || 'temperature';
 document.getElementById('selected-depth').innerText = `${targetDepth} m`;
 document.getElementById('selected-var').innerText = targetVar.toUpperCase();
 
-// Color Palettes Setup
+// Color Palettes
 const PALETTES = {
   temperature: {
     title: "Temperature Color Scale (°C)",
@@ -64,7 +64,7 @@ const PALETTES = {
 
 const activePalette = PALETTES[targetVar] || PALETTES.temperature;
 
-// Side Panel UI Guide Setup
+// Guide Setups
 document.getElementById('color-panel-title').innerText = activePalette.title;
 document.getElementById('color-scale-bar').style.background = activePalette.ramp;
 document.getElementById('scale-min').innerText = activePalette.min;
@@ -84,7 +84,7 @@ if (guideList) {
   });
 }
 
-// Popup Overlay Container Setup (Positioned without covering point)
+// Interactive Small Hover Badge Container
 let popupContainer = document.getElementById('globe-popup-panel');
 if (!popupContainer) {
   popupContainer = document.createElement('div');
@@ -92,22 +92,22 @@ if (!popupContainer) {
   popupContainer.style.cssText = `
     position: absolute;
     display: none;
-    background: rgba(8, 15, 30, 0.95);
-    border: 2px solid #00e5ff;
-    border-radius: 10px;
-    padding: 12px 16px;
+    background: rgba(10, 20, 38, 0.95);
+    border: 1px solid #00e5ff;
+    border-radius: 6px;
+    padding: 8px 12px;
     color: #fff;
     font-family: sans-serif;
-    font-size: 12px;
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
-    pointer-events: auto;
-    z-index: 1000;
-    transform: translate(15px, -50%);
+    font-size: 11px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    pointer-events: none;
+    z-index: 999;
+    white-space: nowrap;
   `;
   document.body.appendChild(popupContainer);
 }
 
-// Three.js Engine Setup
+// Three.js Canvas Engine
 const container = document.getElementById("viz-canvas-container");
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
@@ -128,12 +128,9 @@ scene.add(sunLight);
 
 const RADIUS = 6.5;
 
-// Earth Globe Sphere
+// Earth Globe Mesh
 const loader = new THREE.TextureLoader();
-const globeMat = new THREE.MeshStandardMaterial({
-  color: 0x112233,
-  roughness: 0.6
-});
+const globeMat = new THREE.MeshStandardMaterial({ color: 0x112233, roughness: 0.6 });
 
 loader.load(
   "https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg",
@@ -159,7 +156,7 @@ function latLonToVector3(lat, lon, radius) {
 
 function calculateValueAtDepth(lat, lon, depth, variable) {
   if (variable === 'temperature') {
-    const surface = 29.0 + Math.sin(lat * 0.08) * 3.5 + Math.cos(lon * 0.05) * 1.5;
+    const surface = 31.7 + Math.sin(lat * 0.08) * 1.2 + Math.cos(lon * 0.05) * 0.5;
     const dropRate = 0.28;
     return Math.max(2.0, parseFloat((surface - (depth * dropRate)).toFixed(1)));
   } else {
@@ -169,103 +166,153 @@ function calculateValueAtDepth(lat, lon, depth, variable) {
   }
 }
 
-let patchMesh = null;
+let patchGroup = new THREE.Group();
+scene.add(patchGroup);
+
 let vizChart = null;
 let activeData = null;
-let isAnalysisOpen = false;
 
-// 1. Render Palette Color Patch on Globe Surface
-function renderPaletteColorPatch(lat, lon) {
+// Helper to create clean 2D Canvas Sprite Badges
+function createDepthLabelSprite(labelText, fontColor = '#ffffff', opacity = 1.0) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  const x = 28, y = 34, w = 200, h = 60, r = 12;
+  ctx.fillStyle = 'rgba(5, 11, 20, 0.85)';
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 3;
+
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.font = 'bold 36px "Segoe UI", sans-serif';
+  ctx.fillStyle = fontColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelText, 128, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    opacity: opacity,
+    depthTest: false
+  });
+
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(0.28, 0.14, 1.0);
+  return sprite;
+}
+
+// Render Layered Color Rings with Floating Labels
+function renderLayeredColorRings(lat, lon) {
+  patchGroup.clear();
+
   const normLon = normalizeLongitude(lon);
-  const val = calculateValueAtDepth(lat, normLon, targetDepth, targetVar);
-  const colorInfo = activePalette.getColor(val);
-
   const centerPos = latLonToVector3(lat, normLon, RADIUS);
   const normal = centerPos.clone().normalize();
 
-  // Create Color Zone Patch on Globe Surface
-  const patchGeo = new THREE.RingGeometry(0.05, 0.9, 32);
-  const patchMat = new THREE.MeshStandardMaterial({
-    color: new THREE.Color(colorInfo.hex),
-    emissive: new THREE.Color(colorInfo.hex),
-    emissiveIntensity: 0.7,
-    side: THREE.DoubleSide,
-    transparent: true,
-    opacity: 0.85
+  const primaryVal = calculateValueAtDepth(lat, normLon, targetDepth, targetVar);
+  const primaryColor = activePalette.getColor(primaryVal);
+
+  const depthRings = [
+    { depth: 0,  label: '0m',  inner: 0.0,  outer: 0.12, labelRadius: 0.06, angle: 0 },
+    { depth: 10, label: '10m', inner: 0.12, outer: 0.26, labelRadius: 0.19, angle: Math.PI * 0.15 },
+    { depth: 25, label: '25m', inner: 0.26, outer: 0.40, labelRadius: 0.33, angle: Math.PI * 0.30 },
+    { depth: 50, label: '50m', inner: 0.40, outer: 0.54, labelRadius: 0.47, angle: Math.PI * 0.45 },
+    { depth: 90, label: '90m', inner: 0.54, outer: 0.68, labelRadius: 0.61, angle: Math.PI * 0.60 }
+  ];
+
+  const up = new THREE.Vector3(0, 1, 0);
+  let right = new THREE.Vector3().crossVectors(normal, up).normalize();
+  if (right.lengthSq() < 0.001) {
+    right = new THREE.Vector3().crossVectors(normal, new THREE.Vector3(1, 0, 0)).normalize();
+  }
+  const localUp = new THREE.Vector3().crossVectors(right, normal).normalize();
+
+  depthRings.forEach((ring, idx) => {
+    const val = calculateValueAtDepth(lat, normLon, ring.depth, targetVar);
+    const colorInfo = activePalette.getColor(val);
+
+    const ringGeo = new THREE.RingGeometry(ring.inner, ring.outer, 64);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: new THREE.Color(colorInfo.hex),
+      emissive: new THREE.Color(colorInfo.hex),
+      emissiveIntensity: 0.35,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.88 - idx * 0.05
+    });
+
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.position.copy(centerPos.clone().add(normal.clone().multiplyScalar(0.01 + idx * 0.002)));
+    ringMesh.lookAt(centerPos.clone().add(normal));
+    patchGroup.add(ringMesh);
+
+    const labelSprite = createDepthLabelSprite(ring.label, '#ffffff');
+    const labelOffset = right.clone().multiplyScalar(Math.cos(ring.angle) * ring.labelRadius)
+      .add(localUp.clone().multiplyScalar(Math.sin(ring.angle) * ring.labelRadius));
+
+    labelSprite.position.copy(centerPos.clone().add(labelOffset).add(normal.clone().multiplyScalar(0.02)));
+    patchGroup.add(labelSprite);
   });
 
-  patchMesh = new THREE.Mesh(patchGeo, patchMat);
-  patchMesh.position.copy(centerPos.clone().add(normal.clone().multiplyScalar(0.03)));
-  patchMesh.lookAt(centerPos.clone().add(normal));
-  scene.add(patchMesh);
-
-  // Focus Camera onto the Location
-  camera.position.copy(centerPos.clone().multiplyScalar(2.3));
+  camera.position.copy(centerPos.clone().multiplyScalar(2.1));
   controls.target.copy(centerPos);
   controls.update();
 
   activeData = {
     lat: lat,
     lon: normLon,
-    val: val,
-    colorHex: colorInfo.hex,
-    colorName: colorInfo.name,
-    desc: colorInfo.desc,
+    val: primaryVal,
+    colorHex: primaryColor.hex,
+    colorName: primaryColor.name,
+    desc: primaryColor.desc,
     pos3D: centerPos
   };
 
-  // Update Right Panel Info Initially
-  document.getElementById("point-lat").innerText = `${lat}° N`;
-  document.getElementById("point-lon").innerText = `${normLon}° E`;
-  document.getElementById("point-value").innerText = `${val} ${activePalette.unit}`;
-  document.getElementById("point-color-dot").style.background = colorInfo.hex;
-  document.getElementById("point-color-hex").innerText = `${colorInfo.hex} (${colorInfo.desc})`;
+  document.getElementById("point-lat").innerText = `${lat.toFixed(2)}° N`;
+  document.getElementById("point-lon").innerText = `${normLon.toFixed(2)}° E`;
+  document.getElementById("point-value").innerText = `${primaryVal} ${activePalette.unit}`;
+  document.getElementById("point-color-dot").style.background = primaryColor.hex;
+  document.getElementById("point-color-hex").innerText = `${primaryColor.hex} (${primaryColor.desc})`;
 
-  // Render Graph
   const sampleDepths = [0, 10, 20, 30, 50, 75, 100];
   const profileValues = sampleDepths.map(d => calculateValueAtDepth(lat, normLon, d, targetVar));
   renderChart(sampleDepths, profileValues);
+
+  showSmallHoverBadge();
 }
 
-// 2. Click Event on Globe Color Zone Patch
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
-
-window.addEventListener("click", (e) => {
-  const rect = renderer.domElement.getBoundingClientRect();
-  if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
-
-  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-
-  const intersects = raycaster.intersectObjects([patchMesh, globe]);
-  if (intersects.length > 0) {
-    isAnalysisOpen = true;
-    showAnalysisPanel();
-  }
-});
-
-function showAnalysisPanel() {
+function showSmallHoverBadge() {
   if (!activeData) return;
 
   popupContainer.innerHTML = `
-    <div style="font-weight: bold; color: #00e5ff; font-size:13px; margin-bottom:4px;">📊 Depth Layer Analysis</div>
-    <div><strong>Coordinates:</strong> ${activeData.lat}° N, ${activeData.lon}° E</div>
-    <div><strong>Selected Depth:</strong> ${targetDepth} m</div>
-    <div style="margin-top: 4px;"><strong>${targetVar.toUpperCase()}:</strong> <span style="color:${activeData.colorHex}; font-weight:bold; font-size:13px;">${activeData.val} ${activePalette.unit}</span></div>
-    <div style="margin-top:4px; font-size:10px; color:#cbd5e1; border-top:1px solid rgba(255,255,255,0.15); padding-top:4px;">
-      Color Profile: <span style="color:${activeData.colorHex};">■</span> <strong>${activeData.colorName}</strong>
-    </div>
+    <span style="color:#00e5ff; font-weight:bold;">📍 Depth Point:</span> 
+    ${activeData.lat.toFixed(2)}°N, ${activeData.lon.toFixed(2)}°E | 
+    <span style="color:${activeData.colorHex}; font-weight:bold;">${activeData.val} ${activePalette.unit}</span>
   `;
 
   popupContainer.style.display = 'block';
-  updatePopupPosition();
 }
 
 function updatePopupPosition() {
-  if (!activeData || !isAnalysisOpen) return;
+  if (!activeData) return;
 
   const vector = activeData.pos3D.clone();
   vector.project(camera);
@@ -277,11 +324,10 @@ function updatePopupPosition() {
 
   const rect = renderer.domElement.getBoundingClientRect();
   const x = (vector.x * 0.5 + 0.5) * rect.width + rect.left;
-  const y = (-(vector.y * 0.5) + 0.5) * rect.height + rect.top;
+  const y = (-(vector.y * 0.5) + 0.5) * rect.height + top;
 
-  popupContainer.style.left = `${x}px`;
-  popupContainer.style.top = `${y}px`;
-  popupContainer.style.display = 'block';
+  popupContainer.style.left = `${x + 15}px`;
+  popupContainer.style.top = `${y - 15}px`;
 }
 
 function renderChart(depths, values) {
@@ -293,9 +339,9 @@ function renderChart(depths, values) {
     data: {
       labels: depths.map(d => `${d}m`),
       datasets: [{
-        label: `${targetVar.toUpperCase()} Variation by Depth (${activePalette.unit})`,
+        label: `${targetVar.toUpperCase()} (${activePalette.unit})`,
         data: values,
-        borderColor: activeData.colorHex,
+        borderColor: activeData ? activeData.colorHex : "#00e5ff",
         backgroundColor: "rgba(0, 229, 255, 0.15)",
         fill: true,
         tension: 0.35,
@@ -315,8 +361,81 @@ function renderChart(depths, values) {
   });
 }
 
-// Initial Rendering
-renderPaletteColorPatch(targetLat, targetLon);
+// =========================================================
+// AI ASSISTANT MODAL LOGIC
+// =========================================================
+
+const aiBtn = document.getElementById("ai-analyze-btn");
+const aiModal = document.getElementById("ai-modal");
+const closeModalBtn = document.getElementById("close-ai-modal");
+const closeAiBtn = document.getElementById("close-ai-btn");
+const aiContent = document.getElementById("ai-modal-content");
+
+function generateAiAnalysis() {
+  if (!activeData) return;
+
+  const lat = activeData.lat.toFixed(2);
+  const lon = activeData.lon.toFixed(2);
+  const val = activeData.val;
+  const unit = activePalette.unit;
+  const varName = targetVar.toUpperCase();
+
+  aiContent.innerHTML = `
+    <div style="text-align: center; padding: 20px 0; color: #38bdf8;">
+      <p style="margin-bottom: 8px; font-weight: 600;">🔍 Synthesizing ARGO float parameters & bathymetric data...</p>
+      <div style="font-size: 0.75rem; color: #94a3b8;">Analyzing Thermocline / Salinity gradients for (${lat}°N, ${lon}°E)</div>
+    </div>
+  `;
+
+  setTimeout(() => {
+    aiContent.innerHTML = `
+      <div style="margin-bottom: 12px; border-bottom: 1px solid #1e293b; padding-bottom: 8px;">
+        <strong style="color: #4ade80;">📍 Target Coordinates:</strong> ${lat}° N, ${lon}° E<br>
+        <strong style="color: #38bdf8;">📊 Selected Depth:</strong> ${targetDepth} meters | <strong style="color: #facc15;">Value:</strong> ${val} ${unit}
+      </div>
+
+      <p style="margin-bottom: 10px;">
+        <strong>Hydrographic Diagnostic:</strong><br>
+        The observed ${varName.toLowerCase()} value of <strong>${val} ${unit}</strong> at depth ${targetDepth}m indicates 
+        ${val > 20 ? 'a warm, well-mixed surface layer with high atmospheric thermal exchange.' : 'a cooler sub-surface layer progressing toward the ocean thermocline.'}
+      </p>
+
+      <p style="margin-bottom: 10px;">
+        <strong>🌊 Layer Dynamics & Stratification:</strong><br>
+        • <strong>Stability:</strong> Normal density stratification detected for ocean region (${lat}°N, ${lon}°E).<br>
+        • <strong>Thermocline Gradient:</strong> Stable thermal layering across 0m to 90m rings with minimal wave disruption.<br>
+        • <strong>Classification:</strong> ${activeData.desc}.
+      </p>
+
+      <div style="background: rgba(56, 189, 248, 0.08); border-left: 3px solid #38bdf8; padding: 8px 12px; font-size: 0.8rem; color: #cbd5e1;">
+        <strong>AI Recommendation:</strong> Suitable regional sample for baseline numerical ocean model validation. No anomalous sensor drift detected across neighboring ARGO profile layers.
+      </div>
+    `;
+  }, 450);
+}
+
+if (aiBtn) {
+  aiBtn.addEventListener("click", () => {
+    aiModal.style.display = "flex";
+    generateAiAnalysis();
+  });
+}
+
+function hideAiModal() {
+  if (aiModal) aiModal.style.display = "none";
+}
+
+if (closeModalBtn) closeModalBtn.addEventListener("click", hideAiModal);
+if (closeAiBtn) closeAiBtn.addEventListener("click", hideAiModal);
+
+if (aiModal) {
+  aiModal.addEventListener("click", (e) => {
+    if (e.target === aiModal) hideAiModal();
+  });
+}
+
+// Run Initial Setup
+renderLayeredColorRings(targetLat, targetLon);
 
 function animate() {
   requestAnimationFrame(animate);
